@@ -2,8 +2,10 @@
 # Based on information from:
 # https://www.kernel.org/doc/Documentation/input/joystick-api.txt
 
-import os, struct, array, threading, FreeCAD, math
+import os, struct, array, threading, FreeCAD, math, time
 import pivy
+import select
+
 from pivy import coin
 import fcntl
 from fcntl import ioctl
@@ -85,18 +87,82 @@ button_names = {
     0x2c3 : 'dpad_down',
 }
 
-class JoyInterface (Object):
+DEBUG = True
+
+class JoyInterface(object):
     def __init__(self):
         super(JoyInterface, self).__init__()
 
+    def dprint(self,str):
+        if DEBUG:
+            print(str)
+
     def findDevices(self):
-        self.devices = {}
+        self.devices = []
         # Iterate over the joystick devices.
         for fn in os.listdir('/dev/input'):
             if fn.startswith('js'):
                 device = '/dev/input/%s' % (fn)
-                devices.append(device)
-        return devices
+                self.devices.append(device)
+        return self.devices
+
+    def connect(self,index=0):
+        # Open the joystick device.
+        fn = self.devices[index] #'/dev/input/js0'
+        self.dprint('Opening %s...' % fn + '\n')
+        
+        self.jsdev = open(fn, 'rb')
+
+        # Get the device name.
+        buf = array.array('b', [ord('\0')] * 64)
+        ioctl(self.jsdev, 0x80006a13 + (0x10000 * len(buf)), buf) # JSIOCGNAME(len)
+        js_name = buf.tostring()
+
+        self.dprint('Device name: %s' % js_name + '\n')
+        
+        # Get number of axes.
+        buf = array.array('B', [0])
+        ioctl(self.jsdev, 0x80016a11, buf) # JSIOCGAXES
+        num_axes = buf[0]
+        
+        # Get number of buttons.
+        buf = array.array('B', [0])
+        ioctl(self.jsdev, 0x80016a12, buf) # JSIOCGBUTTONS
+        num_buttons = buf[0]
+        
+        # Get the axis map.
+        buf = array.array('B', [0] * 0x40)
+        ioctl(self.jsdev, 0x80406a32, buf) # JSIOCGAXMAP
+                
+        self.axis_map = []
+        for axis in buf[:num_axes]:
+            axis_name = axis_names.get(axis, 'unknown(0x%02x)' % axis)
+            self.axis_map.append(axis_name)
+            axis_states[axis_name] = 0.0
+            
+        # Get the button map.
+        buf = array.array('H', [0] * 200)
+        ioctl(self.jsdev, 0x80406a34, buf) # JSIOCGBTNMAP
+        
+        self.button_map = []
+        for btn in buf[:num_buttons]:
+            btn_name = button_names.get(btn, 'unknown(0x%03x)' % btn)
+            self.button_map.append(btn_name)
+            button_states[btn_name] = 0
+
+        return [True, self.axis_map, self.button_map]
+                
+        #self.dprint( '%d axes found: %s' % (num_axes, ', '.join(self.axis_map)))
+        #self.dprint( '%d buttons found: %s' % (num_buttons, ', '.join(self.button_map)))
+
+
+
+
+
+
+
+
+
 
 class ListenerThread (threading.Thread):
     def __init__(self, threadID, cam):
@@ -123,12 +189,6 @@ class ListenerThread (threading.Thread):
         FreeCAD.Console.PrintMessage('Opening %s...' % fn + '\n')
         
         self.jsdev = open(fn, 'rb')
-        #fd = self.jsdev.fileno()
-        #flag = fcntl.fcntl(fd, fcntl.F_GETFL)
-        #fcntl.fcntl(fd, fcntl.F_SETFL, flag | os.O_NONBLOCK)
-        #flag = fcntl.fcntl(fd, fcntl.F_GETFL)
-        #if flag & os.O_NONBLOCK:
-        #    print "O_NONBLOCK!!"
 
         # Get the device name.
         #buf = bytearray(63)
@@ -173,15 +233,38 @@ class ListenerThread (threading.Thread):
     def run(self):
         FreeCAD.Console.PrintMessage("Starting Input Listener")
         self.moveCenter(0.0, 0.0, 0.0)
-        
+        i=0
+        alpha = 0.0
+        beta = 0.0
+        gamma = 0.0
+        r = 20.0
+
         while self.exitFlag == 0:
+            time.sleep(0.05)
+            i+=1
             #if self.exitFlag:
             #    FreeCAD.Console.PrintMessage("Exiting Input Listener")
             #    return
 
-            print("loop")
+            # Rotate about y-axis 
+            self.eulerRotation(math.pi/2, gamma, -math.pi/2)
+            # Rotate about z axis
+            self.eulerRotation(alpha, 0.0, 0.0)
+            # Rotate about x-axis
+            self.eulerRotation(0.0, beta, 0.0)
+            # Zoom
+            #self.zoom(r)
 
-            evbuf = self.jsdev.read(8)
+            print("loop", i)
+
+            #evbuf = self.jsdev.read(8)
+            r, w, e = select.select([ self.jsdev ], [], [], 0)
+            
+            evbuf = None
+            if self.jsdev in r:
+                evbuf = os.read(self.jsdev.fileno(), 8)
+            else:
+                print "nothing available!"
 
             if evbuf:
                 t, value, type, number = struct.unpack('IhBB', evbuf)
@@ -205,19 +288,16 @@ class ListenerThread (threading.Thread):
                         axis_states[axis] = fvalue
                         # FreeCAD.Console.PrintMessage("%s: %.3f" % (axis, fvalue))
                         if axis == 'x':
-                            # Rotate about y-axis 
-                            self.eulerRotation(math.pi/2, fvalue*math.pi, -math.pi/2)
+                            gamma = self.scale(fvalue)
                         if axis == 'y':
-                            # Rotate about x-axis
-                            self.eulerRotation(0.0, fvalue*math.pi, 0.0)
+                            beta = self.scale(fvalue)
                         if axis == 'rz':
-                            # Rotate about z axis
-                            self.eulerRotation(fvalue*math.pi, 0.0, 0.0)
+                            alpha = self.scale(fvalue)
                         if axis == 'z':
-                            self.zoom((fvalue+1.0)*60.0)
+                            r = (fvalue+1.0)*60.0
 
     def scale(self, value):
-        return value/360.0
+        return 2.0*value*math.pi
 
     def stop(self):
         self.exitFlag = 1
