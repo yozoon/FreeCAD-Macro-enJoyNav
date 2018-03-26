@@ -10,9 +10,7 @@ def dummy(cam, arg):
     return
 
 def moveCenterX(cam, arg):
-    [X, Y, Z, W] = currentRotationQuaternions(cam)
-    [alpha, beta, gamma] = quaternionToEulerAngle(X,Y,Z,W)
-    cam.orientation = eulerRotation(alpha, beta, gamma)
+    print('move_center_x')
 
 def moveCenterY(cam, arg):
     print('move_center_y')
@@ -21,13 +19,17 @@ def moveCenterZ(cam, arg):
     print('move_center_z')
 
 def rotateCenterX(cam, arg):
-    print('rotate_center_x')
+    [X, Y, Z, W] = currentRotationQuaternions(cam)
+    [alpha, beta, gamma] = quaternionToEulerAngleXYX(X,Y,Z,W)
+    cam.orientation = eulerRotationXYX(alpha, beta, gamma)
 
 def rotateCenterY(cam, arg):
     print('rotate_center_y')
 
 def rotateCenterZ(cam, arg):
-    print('rotate_center_z')
+    [X, Y, Z, W] = currentRotationQuaternions(cam)
+    [alpha, beta, gamma] = quaternionToEulerAngleZXZ(X,Y,Z,W)
+    cam.orientation = eulerRotationZXZ(alpha + math.radians(arg), beta, gamma)
 
 def rotateCameraX(cam, arg):
     print('rotate_camera_x')
@@ -50,7 +52,7 @@ def rotateCamerasystemCenterY(cam, arg):
 
 def rotateCamerasystemCenterZ(cam, arg):
     [X, Y, Z, W] = currentRotationQuaternions(cam)
-    quaternionToEulerAngle(X,Y,Z,W)
+    quaternionToEulerAngleZXZ(X,Y,Z,W)
     r = coin.SbRotation()
     r.setValue(z, math.radians(arg))
     cam.orientation = r*currentRotation(cam)
@@ -74,7 +76,7 @@ def currentRotationQuaternions(cam):
     [X, Y, Z, W] = cam.orientation.getValue().getValue()
     return [X, Y, Z, W]
 
-def eulerRotation(alpha, beta, gamma):
+def eulerRotationZXZ(alpha, beta, gamma):
     r1 = coin.SbRotation()
     r1.setValue(z, alpha)
 
@@ -85,19 +87,49 @@ def eulerRotation(alpha, beta, gamma):
     r3.setValue(z, gamma)
     return r3*r2*r1
 
+def eulerRotationXYX(alpha, beta, gamma):
+    r1 = coin.SbRotation()
+    r1.setValue(x, alpha)
+
+    r2 = coin.SbRotation()
+    r2.setValue(y, beta)
+
+    r3 = coin.SbRotation()
+    r3.setValue(x, gamma)
+    return r3*r2*r1
+
 # Based on http://bediyap.com/programming/convert-quaternion-to-euler-rotations/
-def quaternionToEulerAngle(X,Y,Z,W):
+def quaternionToEulerAngleZXZ(X,Y,Z,W):
     r11 = 2*(X*Z + W*Y)      
     r12 = -2*(Y*Z - W*X)
     r21 = W*W - X*X - Y*Y + Z*Z      
     r31 = 2*(X*Z - W*Y)
     r32 = 2*(Y*Z + W*X)
+    return twoaxisrot(r11, r12, r21, r31, r32)
 
+def quaternionToEulerAngleXYX(X,Y,Z,W):
+    r11 = 2*(X*Y + W*Z)
+    r12 = -2*(X*Z - W*Y)
+    r21 = W*W + X*X - Y*Y - Z*Z
+    r31 = 2*(X*Y - W*Z)
+    r32 = 2*(X*Z + W*Y)
+    return twoaxisrot(r11, r12, r21, r31, r32)
+
+
+def twoaxisrot(r11, r12, r21, r31, r32):
     alpha = math.atan2( r11, r12 );
-    beta = math.acos ( r21 );
+    beta = math.acos ( confine(r21, 0.0, 1.0) )
     gamma = math.atan2( r31, r32 );
-
     return [alpha, beta, gamma]
+
+def clamp(value, vmin, vmax):
+    return max(min(value, vmax), vmin)
+
+def confine(value, vmin, vmax):
+    rang = vmax - vmin
+    tmp = value - vmin
+    mod = tmp % rang
+    return vmin + mod
 
 operations = {
     'none': dummy,
