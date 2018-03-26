@@ -101,6 +101,12 @@ class JoyNav(QtGui.QWidget):
         self.startButton.setText(QtGui.QApplication.translate("JoyNav", "Start", None, QtGui.QApplication.UnicodeUTF8))
         QtCore.QObject.connect(self.startButton, QtCore.SIGNAL(_fromUtf8("pressed()")), self.startButtonPressed)
 
+        # Update Button
+        self.updateButton = QtGui.QToolButton()
+        self.updateButton.setObjectName(_fromUtf8("Update Button"))
+        self.updateButton.setText(QtGui.QApplication.translate("JoyNav", "Update", None, QtGui.QApplication.UnicodeUTF8))
+        QtCore.QObject.connect(self.updateButton, QtCore.SIGNAL(_fromUtf8("pressed()")), self.updateButtonPressed)
+
         ## Status Label
         self.statusLabel = QtGui.QLabel()
         self.statusLabel.setWordWrap(True);
@@ -146,6 +152,8 @@ class JoyNav(QtGui.QWidget):
         self.mainLayout.addLayout(self.operationAssignmentLayout)
         hbox = QtGui.QHBoxLayout()
         hbox.addWidget(self.startButton)
+        hbox.addWidget(self.updateButton)
+        self.updateButton.hide()
         hbox.addWidget(self.statusLabel)
         self.mainLayout.addLayout(hbox)
 
@@ -213,10 +221,14 @@ class JoyNav(QtGui.QWidget):
                 dprint(mapping)
                 self.joyInterface.startListening(mapping, self.cam)
                 self.startButton.hide()
+                self.updateButton.show()
                 self.statusLabel.setText(QtGui.QApplication.translate("StatusLabel", "Running", None, QtGui.QApplication.UnicodeUTF8))
 
         else:
             self.updateUI()
+
+    def updateButtonPressed(self):
+        self.joyInterface.updateOperationMap(mapping)
 
 
 ##
