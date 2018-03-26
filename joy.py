@@ -1,7 +1,3 @@
-# Released by rdb under the Unlicense (unlicense.org)
-# Based on information from:
-# https://www.kernel.org/doc/Documentation/input/joystick-api.txt
-
 import os, struct, array, threading, FreeCAD, math, time
 import pivy
 import select
@@ -99,12 +95,23 @@ class JoyInterface(object):
 
     def findDevices(self):
         self.devices = []
+        deviceNames = []
         # Iterate over the joystick devices.
         for fn in os.listdir('/dev/input'):
             if fn.startswith('js'):
                 device = '/dev/input/%s' % (fn)
                 self.devices.append(device)
-        return self.devices
+                deviceNames.append(self.getDeviceName(device))
+        return [self.devices, deviceNames]
+
+    def getDeviceName(self, device):
+        # Open the joystick device.
+        f = open(device, 'rb')
+        # Get the device name.
+        buf = array.array('b', [ord('\0')] * 64)
+        ioctl(f, 0x80006a13 + (0x10000 * len(buf)), buf) # JSIOCGNAME(len)
+        f.close()
+        return buf.tostring()
 
     def connect(self,index=0):
         # Open the joystick device.

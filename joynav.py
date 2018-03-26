@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-#
-#  nav.py
-#  
-
 import FreeCAD, FreeCADGui, Part, math
 import DraftVecUtils
 import pivy
@@ -32,38 +26,14 @@ DEBUG = True
 class Joynav(object):
     def __init__(self):
         super(Joynav, self).__init__()
-
         self.joyInterface = JoyInterface()
-        
-        self.devicesAvailable = self.setupDevice()
-        if self.devicesAvailable:
-            self.dprint("success")
-        else:
-            self.dprint("fail")
+        self.getDevices()
 
-    def setupDevice(self):
-        connectionSuccess = False
-
-        self.deviceList = self.joyInterface.findDevices()
-
-        deviceAvailable = ( len(self.deviceList) > 0 )
-        self.dprint(deviceAvailable)
+    def getDevices(self):
+        [self.deviceList, self.deviceNames] = self.joyInterface.findDevices()
+        self.devicesAvailable = ( len(self.deviceList) > 0 )
+        self.dprint(self.devicesAvailable)
         self.dprint(self.deviceList)
-
-        self.axisMap = {}
-        self.buttonMap = {}
-        if deviceAvailable:
-            [connectionSuccess, axisMap, buttonMap] = self.joyInterface.connect(0)
-            if connectionSuccess:
-                self.dprint( 'axes found: %s' % (', '.join(axisMap)))
-                self.dprint( 'buttons found: %s' % (', '.join(buttonMap)))
-            else:
-                self.dprint('Connection to device couldn\'t be established.')
-        else:
-            self.dprint('No devices available.')
-
-        self.dprint(connectionSuccess)
-        return connectionSuccess and deviceAvailable
 
     def dprint(self,str):
         if DEBUG:
@@ -83,6 +53,8 @@ class Joynav(object):
         # Main Layout Container
         self.mainLayout = QtGui.QVBoxLayout(Joynav)
 
+        self.devicesLayout = QtGui.QHBoxLayout()
+
         ## Not Connected Label
         self.notConnectedLabel = QtGui.QLabel()
         self.notConnectedLabel.setWordWrap(True);
@@ -97,27 +69,36 @@ class Joynav(object):
         self.retryButton.setText(QtGui.QApplication.translate("Joynav", "Retry", None, QtGui.QApplication.UnicodeUTF8))
         QtCore.QObject.connect(self.retryButton, QtCore.SIGNAL(_fromUtf8("pressed()")), self.retryButtonPressed)
 
-        ## Screw Type ComboBox
+        ## Devices Label
+        self.devicesLabel = QtGui.QLabel()
+        self.devicesLabel.setWordWrap(True);
+        self.devicesLabel.setObjectName(_fromUtf8("DevicesLabel"))
+        self.devicesLabel.resize(self.width, self.height)
+        self.devicesLabel.setText(QtGui.QApplication.translate("DevicesLabel", "Available Devices:", None, QtGui.QApplication.UnicodeUTF8))
+
+        ## Device List ComboBox
         self.deviceSelect = QtGui.QComboBox()
         self.deviceSelect.setObjectName(_fromUtf8("DeviceSelect"))
+        self.devicesLayout.addWidget(self.deviceSelect)
+        
+        # Connect Button
+        self.connectButton = QtGui.QToolButton()
+        self.connectButton.setObjectName(_fromUtf8("Connect Button"))
+        self.connectButton.setText(QtGui.QApplication.translate("Joynav", "Connect", None, QtGui.QApplication.UnicodeUTF8))
+        QtCore.QObject.connect(self.connectButton, QtCore.SIGNAL(_fromUtf8("pressed()")), self.connectButtonPressed)
+        self.devicesLayout.addWidget(self.connectButton)
 
         # Start Button
         self.startButton = QtGui.QToolButton()
         self.startButton.setObjectName(_fromUtf8("Start Button"))
-        self.startButton.setText(QtGui.QApplication.translate("Joynav", "START", None, QtGui.QApplication.UnicodeUTF8))
+        self.startButton.setText(QtGui.QApplication.translate("Joynav", "Start", None, QtGui.QApplication.UnicodeUTF8))
         QtCore.QObject.connect(self.startButton, QtCore.SIGNAL(_fromUtf8("pressed()")), self.startButtonPressed)
 
         # Stop Button
         self.stopButton = QtGui.QToolButton()
         self.stopButton.setObjectName(_fromUtf8("StopButton"))
-        self.stopButton.setText(QtGui.QApplication.translate("Joynav", "STOP", None, QtGui.QApplication.UnicodeUTF8))
+        self.stopButton.setText(QtGui.QApplication.translate("Joynav", "Stop", None, QtGui.QApplication.UnicodeUTF8))
         QtCore.QObject.connect(self.stopButton, QtCore.SIGNAL(_fromUtf8("pressed()")), self.stopButtonPressed)
-
-        # Button R
-        self.Button_D = QtGui.QToolButton()
-        self.Button_D.setObjectName(_fromUtf8("Button D"))
-        self.Button_D.setText(QtGui.QApplication.translate("Joynav", "ANIM", None, QtGui.QApplication.UnicodeUTF8))
-        QtCore.QObject.connect(self.Button_D, QtCore.SIGNAL(_fromUtf8("pressed()")), self.buttonD)
 
         self.updateUI()
         
@@ -127,7 +108,7 @@ class Joynav(object):
         # Update Device Select entries
         for i in range(len(self.deviceList)):
             self.deviceSelect.addItem(_fromUtf8(""))
-            self.deviceSelect.setItemText(i, QtGui.QApplication.translate("DeviceSelect", self.deviceList[i], None, QtGui.QApplication.UnicodeUTF8))
+            self.deviceSelect.setItemText(i, QtGui.QApplication.translate("DeviceSelect", self.deviceList[i] + ': ' + self.deviceNames[i], None, QtGui.QApplication.UnicodeUTF8))
 
         # Show/ hide UI elements
         if self.devicesAvailable:
@@ -137,23 +118,37 @@ class Joynav(object):
                 self.mainLayout.removeWidget(self.retryButton)
                 self.retryButton.hide()
 
-            self.mainLayout.addWidget(self.deviceSelect)
+            self.mainLayout.addLayout(self.devicesLayout)
+            #self.mainLayout.addStretch(1)
             self.mainLayout.addWidget(self.startButton)
             self.mainLayout.addWidget(self.stopButton)
-            self.mainLayout.addWidget(self.Button_D)
         else:
             if not self.mainLayout.isEmpty():
-                self.mainLayout.removeWidget(self.deviceSelect)
+                self.mainLayout.removeLayout(self.devicesLayout)
+                self.devicesLayout.hide()
                 self.mainLayout.removeWidget(self.startButton)
+                self.startButton.hide()
                 self.mainLayout.removeWidget(self.stopButton)
-                self.mainLayout.removeWidget(self.Button_D)
+                self.stopButton.hide()
 
             self.mainLayout.addWidget(self.notConnectedLabel)
             self.mainLayout.addWidget(self.retryButton)
 
     def retryButtonPressed(self):
-        self.devicesAvailable = self.setupDevice()
+        self.getDevices()
         self.updateUI()
+
+    def connectButtonPressed(self):
+        self.dprint("connect")
+        self.axisMap = {}
+        self.buttonMap = {}
+        if self.devicesAvailable:
+            [connectionSuccess, self.axisMap, self.buttonMap] = self.joyInterface.connect(0)
+            if connectionSuccess:
+                self.dprint( 'axes found: %s' % (', '.join(self.axisMap)))
+                self.dprint( 'buttons found: %s' % (', '.join(self.buttonMap)))
+            else:
+                self.dprint('Connection to device couldn\'t be established.')
 
     def startButtonPressed(self):
         self.dprint("Starting Input Listener!" + "\n")
@@ -162,10 +157,6 @@ class Joynav(object):
     def stopButtonPressed(self):
         self.dprint("Stopping input Listener!" + "\n")
         #self.listener.stop()
-
-    def buttonD(self):
-        self.dprint("Button D Pressed!" + "\n")
-        #self.animate()
     
 class JoynavMacro(object):
     d = QtGui.QWidget()
