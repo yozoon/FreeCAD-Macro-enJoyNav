@@ -1,11 +1,18 @@
-import os, struct, array, threading, FreeCAD, math, time
+import FreeCAD
+import os
+import struct
+import array
+import threading
+import math
+import time
 import pivy
 import select
+import fcntl
 
 from pivy import coin
-import fcntl
 from fcntl import ioctl
 
+from modules.operations import OperationClass
                 
 # We'll store the states here.
 axis_states = {}
@@ -84,14 +91,15 @@ button_names = {
 }
 
 DEBUG = True
+def dprint(str):
+    if DEBUG:
+        print(str)
 
 class JoyInterface(object):
     def __init__(self):
         super(JoyInterface, self).__init__()
-
-    def dprint(self,str):
-        if DEBUG:
-            print(str)
+        self.index = 0
+        self.workerThread = None
 
     def findDevices(self):
         self.devices = []
@@ -105,62 +113,171 @@ class JoyInterface(object):
         return [self.devices, deviceNames]
 
     def getDeviceName(self, device):
-        # Open the joystick device.
-        f = open(device, 'rb')
-        # Get the device name.
-        buf = array.array('b', [ord('\0')] * 64)
-        ioctl(f, 0x80006a13 + (0x10000 * len(buf)), buf) # JSIOCGNAME(len)
-        f.close()
-        return buf.tostring()
+        try:
+            # Open the joystick device.
+            f = open(device, 'rb')
+            # Get the device name.
+            buf = array.array('b', [ord('\0')] * 64)
+            ioctl(f, 0x80006a13 + (0x10000 * len(buf)), buf) # JSIOCGNAME(len)
+            f.close()
+            return buf.tostring()
+        except:
+            # Retrieving devicename failed
+            return []
 
     def connect(self,index=0):
-        # Open the joystick device.
-        fn = self.devices[index] #'/dev/input/js0'
-        self.dprint('Opening %s...' % fn + '\n')
-        
-        self.jsdev = open(fn, 'rb')
+        self.index = index
+        try:
+            # Open the joystick device.
+            fn = self.devices[self.index] #'/dev/input/js0'
+            #dprint('Opening %s...' % fn + '\n')
+            jsdev = open(fn, 'rb')
+        except:
+            dprint("Opening device failed.")
+            return [False, [], []]
 
-        # Get the device name.
-        buf = array.array('b', [ord('\0')] * 64)
-        ioctl(self.jsdev, 0x80006a13 + (0x10000 * len(buf)), buf) # JSIOCGNAME(len)
-        js_name = buf.tostring()
-
-        self.dprint('Device name: %s' % js_name + '\n')
-        
-        # Get number of axes.
-        buf = array.array('B', [0])
-        ioctl(self.jsdev, 0x80016a11, buf) # JSIOCGAXES
-        num_axes = buf[0]
-        
-        # Get number of buttons.
-        buf = array.array('B', [0])
-        ioctl(self.jsdev, 0x80016a12, buf) # JSIOCGBUTTONS
-        num_buttons = buf[0]
-        
-        # Get the axis map.
-        buf = array.array('B', [0] * 0x40)
-        ioctl(self.jsdev, 0x80406a32, buf) # JSIOCGAXMAP
-                
-        self.axis_map = []
-        for axis in buf[:num_axes]:
-            axis_name = axis_names.get(axis, 'unknown(0x%02x)' % axis)
-            self.axis_map.append(axis_name)
-            axis_states[axis_name] = 0.0
+        try:
+            # Get the device name.
+            buf = array.array('b', [ord('\0')] * 64)
+            ioctl(jsdev, 0x80006a13 + (0x10000 * len(buf)), buf) # JSIOCGNAME(len)
+            js_name = buf.tostring()
             
-        # Get the button map.
-        buf = array.array('H', [0] * 200)
-        ioctl(self.jsdev, 0x80406a34, buf) # JSIOCGBTNMAP
-        
-        self.button_map = []
-        for btn in buf[:num_buttons]:
-            btn_name = button_names.get(btn, 'unknown(0x%03x)' % btn)
-            self.button_map.append(btn_name)
-            button_states[btn_name] = 0
+            # Get number of axes.
+            buf = array.array('B', [0])
+            ioctl(jsdev, 0x80016a11, buf) # JSIOCGAXES
+            num_axes = buf[0]
+            
+            # Get number of buttons.
+            buf = array.array('B', [0])
+            ioctl(jsdev, 0x80016a12, buf) # JSIOCGBUTTONS
+            num_buttons = buf[0]
+            
+            # Get the axis map.
+            buf = array.array('B', [0] * 0x40)
+            ioctl(jsdev, 0x80406a32, buf) # JSIOCGAXMAP
+                    
+            self.axis_map = []
+            for axis in buf[:num_axes]:
+                axis_name = axis_names.get(axis, 'unknown(0x%02x)' % axis)
+                self.axis_map.append(axis_name)
+                axis_states[axis_name] = 0.0
+                
+            # Get the button map.
+            buf = array.array('H', [0] * 200)
+            ioctl(jsdev, 0x80406a34, buf) # JSIOCGBTNMAP
+            
+            self.button_map = []
+            for btn in buf[:num_buttons]:
+                btn_name = button_names.get(btn, 'unknown(0x%03x)' % btn)
+                self.button_map.append(btn_name)
+                button_states[btn_name] = 0
+        except:
+            dprint("Reading device info failed.")
+            return [False, [], []]
+
+        # Close file
+        jsdev.close()
 
         return [True, self.axis_map, self.button_map]
-                
-        #self.dprint( '%d axes found: %s' % (num_axes, ', '.join(self.axis_map)))
-        #self.dprint( '%d buttons found: %s' % (num_buttons, ', '.join(self.button_map)))
+
+    def startListening(self, operation_map, cam):
+        self.workerThread = WorkerThread(1, self.devices[self.index], self.axis_map, self.button_map, operation_map, cam)
+        self.workerThread.start()
+
+    def updateOperationMap(self, operation_map):
+        if not self.workerThread == None:
+            if self.workerThread.is_alive():
+                self.workerThread.updateOperationMap(operation_map)
+
+    def exit(self):
+        if not self.workerThread == None:
+            if self.workerThread.is_alive():
+                self.workerThread.exit()
+                self.workerThread.join()
+
+
+
+class WorkerThread (threading.Thread):
+    def __init__(self, threadID, device, axis_map, button_map, operation_map, cam):
+        threading.Thread.__init__(self)
+        self.threadID = threadID
+        self.name = "WorkerThread"
+        self.device = device
+        self.exitFlag = 0
+        self.cam = cam
+        self.axis_map = axis_map
+        self.button_map = button_map
+        self.operationMap = operation_map
+        self.operationClass = OperationClass()
+        self.operations = self.operationClass.getOperations()
+        self.operationNames = self.operationClass.getOperationNames()
+
+    def updateOperationMap(self, operation_map):
+        self.operationMap = operation_map
+
+    def run(self):
+        dprint("Thread started")
+        dev = open(self.device, 'rb')
+        while self.exitFlag == 0:
+            # Check whether data is available
+            r, w, e = select.select([ dev ], [], [], 0)
+            
+            # Read data if available
+            evbuf = None
+            if dev in r:
+                evbuf = os.read(dev.fileno(), 8)
+
+            if evbuf:
+                t, value, type, number = struct.unpack('IhBB', evbuf)
+
+                #if type & 0x80:
+                #    FreeCAD.Console.PrintMessage("(initial)")
+
+                if type & 0x01:
+                    button = self.button_map[number]
+                    if button:
+                        button_states[button] = value
+                        if value:
+                            dprint("%s pressed" % (button))
+                        else:
+                            dprint("%s released" % (button))
+
+                if type & 0x02:
+                    axis = self.axis_map[number]
+                    if axis:
+                        fvalue = value / 32767.0
+                        axis_states[axis] = fvalue
+
+            # Execute the operations
+            self.executeOperations()
+            time.sleep(0.001)
+
+        dev.close()
+        dprint("Thread ended")
+
+    def executeOperations(self):
+        for ax, value in self.operationMap.items():
+            self.operations[self.operationNames[value]](self.cam, axis_states[ax])
+
+    def exit(self):
+        self.exitFlag = 1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

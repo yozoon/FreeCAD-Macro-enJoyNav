@@ -1,20 +1,18 @@
-import FreeCAD, FreeCADGui, Part, math
-import DraftVecUtils
-import pivy
+import FreeCAD
+import math
 import time
-
-from joy import ListenerThread
-from joy import JoyInterface
+import pivy
 
 from pivy import coin
 from FreeCAD import Base
 
+from modules.joy import JoyInterface
+from modules.operations import OperationClass
+
 try:
     from PySide import QtCore, QtGui
-    FreeCAD.Console.PrintMessage("PySide is used" + "\n")
 except:
     from PyQt4 import QtCore, QtGui
-    FreeCAD.Console.PrintMessage("PyQt4 is needed" + "\n")
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -22,38 +20,47 @@ except AttributeError:
     _fromUtf8 = lambda s: s
 
 DEBUG = True
+def dprint(str):
+    if DEBUG:
+        print(str)
 
-class Joynav(object):
+mapping = {}
+
+class JoyNav(QtGui.QWidget):
     def __init__(self):
-        super(Joynav, self).__init__()
+        super(JoyNav, self).__init__()
+        # Window Properties
+        self.width = 400
+        self.height = 200
+        self.setObjectName(_fromUtf8("JoyNav"))
+        self.resize(self.width, self.height)
+        self.setLocale(QtCore.QLocale(QtCore.QLocale.English, QtCore.QLocale.UnitedKingdom))
+        self.setWindowTitle(QtGui.QApplication.translate("JoyNav", "JoyNav", None, QtGui.QApplication.UnicodeUTF8))
+
         self.joyInterface = JoyInterface()
         self.getDevices()
+        self.operationClass = OperationClass()
+        self.operationNames = self.operationClass.getOperationNames()
+        self.operationMapping = {}
+        self.setupUI()
+
+    def closeEvent(self, event):
+        self.joyInterface.exit()
+        print("Closing")
 
     def getDevices(self):
         [self.deviceList, self.deviceNames] = self.joyInterface.findDevices()
         self.devicesAvailable = ( len(self.deviceList) > 0 )
-        self.dprint(self.devicesAvailable)
-        self.dprint(self.deviceList)
+        dprint(self.devicesAvailable)
+        dprint(self.deviceList)
 
-    def dprint(self,str):
-        if DEBUG:
-            print(str)
-
-    def setupUI(self, Joynav):
-        FCUi = FreeCADGui.UiLoader()
-        self.width = 400
-        self.height = 400
-
-        # Window Properties
-        Joynav.setObjectName(_fromUtf8("Joynav"))
-        Joynav.resize(self.width, self.height)
-        Joynav.setLocale(QtCore.QLocale(QtCore.QLocale.English, QtCore.QLocale.UnitedKingdom))
-        Joynav.setWindowTitle(QtGui.QApplication.translate("Joynav", "Joynav", None, QtGui.QApplication.UnicodeUTF8))
-        
+    def setupUI(self):
         # Main Layout Container
-        self.mainLayout = QtGui.QVBoxLayout(Joynav)
+        self.mainLayout = QtGui.QVBoxLayout(self)
 
+        # Device Layout Container
         self.devicesLayout = QtGui.QHBoxLayout()
+        self.mainLayout.addLayout(self.devicesLayout)
 
         ## Not Connected Label
         self.notConnectedLabel = QtGui.QLabel()
@@ -66,14 +73,14 @@ class Joynav(object):
         # Retry Button
         self.retryButton = QtGui.QToolButton()
         self.retryButton.setObjectName(_fromUtf8("Retry Button"))
-        self.retryButton.setText(QtGui.QApplication.translate("Joynav", "Retry", None, QtGui.QApplication.UnicodeUTF8))
+        self.retryButton.setText(QtGui.QApplication.translate("JoyNav", "Retry", None, QtGui.QApplication.UnicodeUTF8))
         QtCore.QObject.connect(self.retryButton, QtCore.SIGNAL(_fromUtf8("pressed()")), self.retryButtonPressed)
 
         ## Devices Label
         self.devicesLabel = QtGui.QLabel()
         self.devicesLabel.setWordWrap(True);
         self.devicesLabel.setObjectName(_fromUtf8("DevicesLabel"))
-        self.devicesLabel.resize(self.width, self.height)
+        #self.devicesLabel.resize(self.width, self.height)
         self.devicesLabel.setText(QtGui.QApplication.translate("DevicesLabel", "Available Devices:", None, QtGui.QApplication.UnicodeUTF8))
 
         ## Device List ComboBox
@@ -84,25 +91,63 @@ class Joynav(object):
         # Connect Button
         self.connectButton = QtGui.QToolButton()
         self.connectButton.setObjectName(_fromUtf8("Connect Button"))
-        self.connectButton.setText(QtGui.QApplication.translate("Joynav", "Connect", None, QtGui.QApplication.UnicodeUTF8))
+        self.connectButton.setText(QtGui.QApplication.translate("JoyNav", "Connect", None, QtGui.QApplication.UnicodeUTF8))
         QtCore.QObject.connect(self.connectButton, QtCore.SIGNAL(_fromUtf8("pressed()")), self.connectButtonPressed)
         self.devicesLayout.addWidget(self.connectButton)
 
         # Start Button
         self.startButton = QtGui.QToolButton()
         self.startButton.setObjectName(_fromUtf8("Start Button"))
-        self.startButton.setText(QtGui.QApplication.translate("Joynav", "Start", None, QtGui.QApplication.UnicodeUTF8))
+        self.startButton.setText(QtGui.QApplication.translate("JoyNav", "Start", None, QtGui.QApplication.UnicodeUTF8))
         QtCore.QObject.connect(self.startButton, QtCore.SIGNAL(_fromUtf8("pressed()")), self.startButtonPressed)
 
-        # Stop Button
-        self.stopButton = QtGui.QToolButton()
-        self.stopButton.setObjectName(_fromUtf8("StopButton"))
-        self.stopButton.setText(QtGui.QApplication.translate("Joynav", "Stop", None, QtGui.QApplication.UnicodeUTF8))
-        QtCore.QObject.connect(self.stopButton, QtCore.SIGNAL(_fromUtf8("pressed()")), self.stopButtonPressed)
+        ## Status Label
+        self.statusLabel = QtGui.QLabel()
+        self.statusLabel.setWordWrap(True);
+        self.statusLabel.setObjectName(_fromUtf8("StatusLabel"))
+        self.statusLabel.setText(QtGui.QApplication.translate("StatusLabel", "", None, QtGui.QApplication.UnicodeUTF8))
 
         self.updateUI()
         
-        #QtCore.QMetaObject.connectSlotsByName(Joynav)
+        #QtCore.QMetaObject.connectSlotsByName(JoyNav)
+
+    def operationAssignmentUI(self, axisMap, buttonMap):
+        self.devicesLayout.setParent(None)
+        self.connectButton.hide()
+        self.deviceSelect.hide()
+
+        self.operationAssignmentLayout = QtGui.QVBoxLayout()
+
+        for ax in axisMap:
+            # Horizontal Layout
+            hbox = QtGui.QHBoxLayout()
+
+            mapping[ax] = 0
+
+            ## Axis Label
+            label = QtGui.QLabel()
+            label.setText(QtGui.QApplication.translate("JoyNav", ax+":", None, QtGui.QApplication.UnicodeUTF8))
+
+            dropdown = QtGui.QComboBox()
+            for i in range(len(self.operationNames)):
+                dropdown.addItem(_fromUtf8(""))
+                dropdown.setItemText(i, QtGui.QApplication.translate("JoyNav", self.operationNames[i], None, QtGui.QApplication.UnicodeUTF8))
+
+            QtCore.QObject.connect(dropdown, QtCore.SIGNAL(_fromUtf8("currentIndexChanged(int)")), MappingCallback(ax))
+            index = self.operationNames.index("none")
+            dropdown.setCurrentIndex(index)
+            mapping[ax] = index
+            # dropdown.setCurrentIndex(0)
+
+            hbox.addWidget(label)
+            hbox.addWidget(dropdown)
+            self.operationAssignmentLayout.addLayout(hbox)
+
+        self.mainLayout.addLayout(self.operationAssignmentLayout)
+        hbox = QtGui.QHBoxLayout()
+        hbox.addWidget(self.startButton)
+        hbox.addWidget(self.statusLabel)
+        self.mainLayout.addLayout(hbox)
 
     def updateUI(self):
         # Update Device Select entries
@@ -118,19 +163,13 @@ class Joynav(object):
                 self.mainLayout.removeWidget(self.retryButton)
                 self.retryButton.hide()
 
-            self.mainLayout.addLayout(self.devicesLayout)
+            self.connectButton.show()
+            self.deviceSelect.show()
             #self.mainLayout.addStretch(1)
-            self.mainLayout.addWidget(self.startButton)
-            self.mainLayout.addWidget(self.stopButton)
         else:
             if not self.mainLayout.isEmpty():
-                self.mainLayout.removeLayout(self.devicesLayout)
-                self.devicesLayout.hide()
-                self.mainLayout.removeWidget(self.startButton)
-                self.startButton.hide()
-                self.mainLayout.removeWidget(self.stopButton)
-                self.stopButton.hide()
-
+                self.connectButton.hide()
+                self.deviceSelect.hide()
             self.mainLayout.addWidget(self.notConnectedLabel)
             self.mainLayout.addWidget(self.retryButton)
 
@@ -139,34 +178,64 @@ class Joynav(object):
         self.updateUI()
 
     def connectButtonPressed(self):
-        self.dprint("connect")
+        dprint("connect")
         self.axisMap = {}
         self.buttonMap = {}
+        connectionSuccess = False
         if self.devicesAvailable:
             [connectionSuccess, self.axisMap, self.buttonMap] = self.joyInterface.connect(0)
             if connectionSuccess:
-                self.dprint( 'axes found: %s' % (', '.join(self.axisMap)))
-                self.dprint( 'buttons found: %s' % (', '.join(self.buttonMap)))
+                dprint( 'axes found: %s' % (', '.join(self.axisMap)))
+                dprint( 'buttons found: %s' % (', '.join(self.buttonMap)))
             else:
-                self.dprint('Connection to device couldn\'t be established.')
+                dprint('Connection to device couldn\'t be established.')
+
+        if connectionSuccess:
+            self.operationAssignmentUI(self.axisMap, self.buttonMap)
+        else:
+            self.getDevices()
+            self.updateUI()
+
 
     def startButtonPressed(self):
-        self.dprint("Starting Input Listener!" + "\n")
-        #self.listener.start()
+        self.getDevices()
+        if self.devicesAvailable:
+            success = False
+            try:
+                self.cam = Gui.ActiveDocument.ActiveView.getCameraNode()
+                success = True
+            except:
+                dprint("No camera instance.")
+                self.statusLabel.setText(QtGui.QApplication.translate("StatusLabel", 
+                    "Please open a 3D view window and try again.", None, QtGui.QApplication.UnicodeUTF8))
+            if success:
+                dprint("Starting Input Listener!")
+                dprint(mapping)
+                self.joyInterface.startListening(mapping, self.cam)
+                self.startButton.hide()
+                self.statusLabel.setText(QtGui.QApplication.translate("StatusLabel", "Running", None, QtGui.QApplication.UnicodeUTF8))
 
-    def stopButtonPressed(self):
-        self.dprint("Stopping input Listener!" + "\n")
-        #self.listener.stop()
-    
-class JoynavMacro(object):
-    d = QtGui.QWidget()
-    d.ui = Joynav()
-    d.ui.setupUI(d)
+        else:
+            self.updateUI()
+
+
+##
+# Helper class to create dynamically created callback functions
+##
+class MappingCallback:
+    def __init__(self, name):
+        self.name = name
+
+    def __call__(self, index):
+        mapping[self.name] = index
+
+class JoyNavMacro(object):
+    d = JoyNav() #QtGui.QWidget()#
     if __name__ == '__main__':
         d.show()
 
 def main():
-    o = JoynavMacro()
+    macro = JoyNavMacro()
 
 if __name__ == '__main__':
     main()
