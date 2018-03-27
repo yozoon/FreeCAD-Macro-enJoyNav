@@ -28,16 +28,16 @@ operationMap = {}
 paramMap = {}
 invertMap = {}
 
-class JoyNav(QtGui.QWidget):
+class enJoyNav(QtGui.QWidget):
     def __init__(self):
-        super(JoyNav, self).__init__()
+        super(enJoyNav, self).__init__()
         # Window Properties
         self.width = 400
         self.height = 200
-        self.setObjectName(_fromUtf8("JoyNav"))
+        self.setObjectName(_fromUtf8("enJoyNav"))
         self.resize(self.width, self.height)
         self.setLocale(QtCore.QLocale(QtCore.QLocale.English, QtCore.QLocale.UnitedKingdom))
-        self.setWindowTitle(QtGui.QApplication.translate("JoyNav", "JoyNav", None, QtGui.QApplication.UnicodeUTF8))
+        self.setWindowTitle(QtGui.QApplication.translate("enJoyNav", "enJoyNav", None, QtGui.QApplication.UnicodeUTF8))
 
         self.joyInterface = JoyInterface()
         self.getDevices()
@@ -74,7 +74,7 @@ class JoyNav(QtGui.QWidget):
         # Retry Button
         self.retryButton = QtGui.QToolButton()
         self.retryButton.setObjectName(_fromUtf8("Retry Button"))
-        self.retryButton.setText(QtGui.QApplication.translate("JoyNav", "Retry", None, QtGui.QApplication.UnicodeUTF8))
+        self.retryButton.setText(QtGui.QApplication.translate("enJoyNav", "Retry", None, QtGui.QApplication.UnicodeUTF8))
         QtCore.QObject.connect(self.retryButton, QtCore.SIGNAL(_fromUtf8("pressed()")), self.retryButtonPressed)
 
         ## Devices Label
@@ -91,20 +91,20 @@ class JoyNav(QtGui.QWidget):
         # Connect Button
         self.connectButton = QtGui.QToolButton()
         self.connectButton.setObjectName(_fromUtf8("Connect Button"))
-        self.connectButton.setText(QtGui.QApplication.translate("JoyNav", "Connect", None, QtGui.QApplication.UnicodeUTF8))
+        self.connectButton.setText(QtGui.QApplication.translate("enJoyNav", "Connect", None, QtGui.QApplication.UnicodeUTF8))
         QtCore.QObject.connect(self.connectButton, QtCore.SIGNAL(_fromUtf8("pressed()")), self.connectButtonPressed)
         self.devicesLayout.addWidget(self.connectButton)
 
         # Start Button
         self.startButton = QtGui.QToolButton()
         self.startButton.setObjectName(_fromUtf8("Start Button"))
-        self.startButton.setText(QtGui.QApplication.translate("JoyNav", "Start", None, QtGui.QApplication.UnicodeUTF8))
+        self.startButton.setText(QtGui.QApplication.translate("enJoyNav", "Start", None, QtGui.QApplication.UnicodeUTF8))
         QtCore.QObject.connect(self.startButton, QtCore.SIGNAL(_fromUtf8("pressed()")), self.startButtonPressed)
 
         # Reset View Button
         self.resetButton = QtGui.QToolButton()
         self.resetButton.setObjectName(_fromUtf8("Reset Button"))
-        self.resetButton.setText(QtGui.QApplication.translate("JoyNav", "Reset View", None, QtGui.QApplication.UnicodeUTF8))
+        self.resetButton.setText(QtGui.QApplication.translate("enJoyNav", "Reset View", None, QtGui.QApplication.UnicodeUTF8))
         QtCore.QObject.connect(self.resetButton, QtCore.SIGNAL(_fromUtf8("pressed()")), self.resetButtonPressed)
 
         ## Status Label
@@ -127,23 +127,23 @@ class JoyNav(QtGui.QWidget):
         label1 = QtGui.QLabel()
         label1.setFixedWidth(70)
         label1.setWordWrap(True)
-        label1.setText(QtGui.QApplication.translate("JoyNav", "Axis Name", None, QtGui.QApplication.UnicodeUTF8))
+        label1.setText(QtGui.QApplication.translate("enJoyNav", "Axis Name", None, QtGui.QApplication.UnicodeUTF8))
 
         label2 = QtGui.QLabel()
         label2.setFixedWidth(230)
         label2.setWordWrap(True)
-        label2.setText(QtGui.QApplication.translate("JoyNav", "Operation", None, QtGui.QApplication.UnicodeUTF8))
+        label2.setText(QtGui.QApplication.translate("enJoyNav", "Operation", None, QtGui.QApplication.UnicodeUTF8))
 
         label3 = QtGui.QLabel()
         label3.setFixedWidth(35)
         label3.setWordWrap(True)
-        label3.setText(QtGui.QApplication.translate("JoyNav", "Invert", None, QtGui.QApplication.UnicodeUTF8))
+        label3.setText(QtGui.QApplication.translate("enJoyNav", "Invert", None, QtGui.QApplication.UnicodeUTF8))
 
         label4 = QtGui.QLabel()
         label4.setFixedWidth(155)
         label4.setWordWrap(True)
         label4.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        label4.setText(QtGui.QApplication.translate("JoyNav", "Scaling", None, QtGui.QApplication.UnicodeUTF8))
+        label4.setText(QtGui.QApplication.translate("enJoyNav", "Scaling", None, QtGui.QApplication.UnicodeUTF8))
 
         hbox.addWidget(label1)
         hbox.addStretch(1)
@@ -163,12 +163,12 @@ class JoyNav(QtGui.QWidget):
 
             ## Axis Label
             label = QtGui.QLabel()
-            label.setText(QtGui.QApplication.translate("JoyNav", ax+":", None, QtGui.QApplication.UnicodeUTF8))
+            label.setText(QtGui.QApplication.translate("enJoyNav", ax+":", None, QtGui.QApplication.UnicodeUTF8))
 
             dropdown = QtGui.QComboBox()
             for i in range(len(self.operationNames)):
                 dropdown.addItem(_fromUtf8(""))
-                dropdown.setItemText(i, QtGui.QApplication.translate("JoyNav", self.operationNames[i], None, QtGui.QApplication.UnicodeUTF8))
+                dropdown.setItemText(i, QtGui.QApplication.translate("enJoyNav", self.operationNames[i], None, QtGui.QApplication.UnicodeUTF8))
 
             QtCore.QObject.connect(dropdown, QtCore.SIGNAL(_fromUtf8("currentIndexChanged(int)")), OperationMappingCallback(ax))
             dropdown.setCurrentIndex(index)
@@ -292,13 +292,13 @@ class InvertMappingCallback:
         invertMap[self.name] = b
 
 
-class JoyNavMacro(object):
-    d = JoyNav()
+class enenJoyNavMacro(object):
+    d = enJoyNav()
     if __name__ == '__main__':
         d.show()
 
 def main():
-    macro = JoyNavMacro()
+    macro = enenJoyNavMacro()
 
 if __name__ == '__main__':
     main()

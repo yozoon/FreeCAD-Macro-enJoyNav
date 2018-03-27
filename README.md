@@ -1,4 +1,4 @@
-# FreeCAD-Macro-JoyNav
+# FreeCAD-Macro-enJoyNav
 
 [![License: GPL v3](https://img.shields.io/badge/License-LGPL%20v3-blue.svg)](http://www.gnu.org/licenses/lgpl-3.0)
 
@@ -24,8 +24,8 @@ If you still want to risk losing your orientation in the 3D view of FreeCAD foll
 
 ```bash
 cd /path/you/like
-git clone git@github.com:yozoon/FreeCAD-Macro-JoyNav.git
-cd FreeCAD-Macro-JoyNav
-ln -s /path/you/like/FreeCAD-Macro-JoyNav/JoyNav.py ~/.FreeCAD/Macro/JoyNav.py
-ln -s /path/you/like/FreeCAD-Macro-JoyNav/modules ~/.FreeCAD/Macro/modules
+git clone git@github.com:yozoon/FreeCAD-Macro-enJoyNav.git
+cd FreeCAD-Macro-enJoyNav
+ln -s /path/you/like/FreeCAD-Macro-enJoyNav/enJoyNav.py ~/.FreeCAD/Macro/enJoyNav.py
+ln -s /path/you/like/FreeCAD-Macro-enJoyNav/modules ~/.FreeCAD/Macro/modules
 ```
