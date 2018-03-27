@@ -1,3 +1,6 @@
+# The joystick backend (connecting to and reading from the device itself) 
+# is heavily based on js_linux.py by GitHub user rdb (https://gist.github.com/rdb/8864666)
+
 import FreeCAD
 import os
 import struct
