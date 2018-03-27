@@ -3,70 +3,78 @@ import pivy
 from pivy import coin
 
 x = coin.SbVec3f(1.0,0.0,0.0)
-y = coin.SbVec3f(0.0,1.0,1.0)
+y = coin.SbVec3f(0.0,1.0,0.0)
 z = coin.SbVec3f(0.0,0.0,1.0)
 
-def dummy(cam, arg):
+def dummy(cam, arg, param=1):
     return
 
-def moveCenterX(cam, arg):
-    print('move_center_x')
+def moveCenterX(cam, arg, param=1):
+    [X, Y, Z] = currentPosition(cam)
+    cam.position = coin.SbVec3f(X + arg * param, Y, Z)
 
-def moveCenterY(cam, arg):
-    print('move_center_y')
+def moveCenterY(cam, arg, param=1):
+    [X, Y, Z] = currentPosition(cam)
+    cam.position = coin.SbVec3f(X, Y + arg * param, Z)
 
-def moveCenterZ(cam, arg):
-    print('move_center_z')
+def moveCenterZ(cam, arg, param=1):
+    [X, Y, Z] = currentPosition(cam)
+    cam.position = coin.SbVec3f(X, Y, Z + arg * param)
 
-def rotateCenterX(cam, arg):
-    [X, Y, Z, W] = currentRotationQuaternions(cam)
-    [alpha, beta, gamma] = quaternionToEulerAngleXYX(X,Y,Z,W)
-    cam.orientation = eulerRotationXYX(alpha, beta, gamma)
-
-def rotateCenterY(cam, arg):
-    print('rotate_center_y')
-
-def rotateCenterZ(cam, arg):
-    [X, Y, Z, W] = currentRotationQuaternions(cam)
-    [alpha, beta, gamma] = quaternionToEulerAngleZXZ(X,Y,Z,W)
-    cam.orientation = eulerRotationZXZ(alpha + math.radians(arg), beta, gamma)
-
-def rotateCameraX(cam, arg):
-    print('rotate_camera_x')
-
-def rotateCameraY(cam, arg):
-    print('rotate_camera_y')
-
-def rotateCameraZ(cam, arg):
-    print('rotate_camera_z')
-
-def rotateCamerasystemCenterX(cam, arg):
+def rotateCenterX(cam, arg, param=1):
     r = coin.SbRotation()
-    r.setValue(x, math.radians(arg))
+    r.setValue(x, math.radians(arg * param))
+    cam.orientation = currentRotation(cam) * r
+
+def rotateCenterY(cam, arg, param=1):
+    r = coin.SbRotation()
+    r.setValue(y, math.radians(arg * param))
+    cam.orientation = currentRotation(cam) * r
+
+def rotateCenterZ(cam, arg, param=1):
+    r = coin.SbRotation()
+    r.setValue(z, math.radians(arg * param))
+    cam.orientation = currentRotation(cam) * r
+
+def rotateCamerasystemCenterX(cam, arg, param=1):
+    r = coin.SbRotation()
+    r.setValue(x, math.radians(arg * param))
     cam.orientation = r*currentRotation(cam)
 
-def rotateCamerasystemCenterY(cam, arg):
+def rotateCamerasystemCenterY(cam, arg, param=1):
     r = coin.SbRotation()
-    r.setValue(y, math.radians(arg))
+    r.setValue(y, math.radians(arg * param))
     cam.orientation = r*currentRotation(cam)
 
-def rotateCamerasystemCenterZ(cam, arg):
-    [X, Y, Z, W] = currentRotationQuaternions(cam)
-    quaternionToEulerAngleZXZ(X,Y,Z,W)
+def rotateCamerasystemCenterZ(cam, arg, param=1):
     r = coin.SbRotation()
-    r.setValue(z, math.radians(arg))
+    r.setValue(z, math.radians(arg * param))
     cam.orientation = r*currentRotation(cam)
 
-def zoom(cam, arg):
-    # SoSFFloat Object
+def zoom(cam, arg, param=1):
     r = cam.height.getValue()
-    #r = r.getValue()
-    cam.height.setValue(r+arg)
+    cam.height.setValue(r + arg * param)
+
+operations = {
+    'None': dummy,
+    'Move Center X': moveCenterX,
+    'Move Center Y': moveCenterY,
+    'Move Center Z': moveCenterZ,
+    'Rotate X': rotateCenterX,
+    'Rotate Y': rotateCenterY,
+    'Rotate Z': rotateCenterZ,
+    'Rotate Camerasystem Center X': rotateCamerasystemCenterX,
+    'Rotate Camerasystem Center Y': rotateCamerasystemCenterY,
+    'Rotate Camerasystem Center Z': rotateCamerasystemCenterZ,
+    'Zoom': zoom
+}
 
 
-
+###############################
+# Helper Functions
+###############################
 def currentPosition(cam):
-    cam.position.getValue()
+    return cam.position.getValue()
 
 def currentRotation(cam):
     rot = cam.orientation.getValue() 
@@ -115,7 +123,6 @@ def quaternionToEulerAngleXYX(X,Y,Z,W):
     r32 = 2*(X*Z + W*Y)
     return twoaxisrot(r11, r12, r21, r31, r32)
 
-
 def twoaxisrot(r11, r12, r21, r31, r32):
     alpha = math.atan2( r11, r12 );
     beta = math.acos ( confine(r21, 0.0, 1.0) )
@@ -131,24 +138,6 @@ def confine(value, vmin, vmax):
     mod = tmp % rang
     return vmin + mod
 
-operations = {
-    'none': dummy,
-    'move_center_x': moveCenterX,
-    'move_center_y': moveCenterY,
-    'move_center_z': moveCenterZ,
-    'rotate_center_x': rotateCenterX,
-    'rotate_center_y': rotateCenterY,
-    'rotate_center_z': rotateCenterZ,
-    'rotate_camera_x': rotateCameraX,
-    'rotate_camera_y': rotateCameraY,
-    'rotate_camera_z': rotateCameraZ,
-    'rotate_camerasystem_center_x': rotateCamerasystemCenterX,
-    'rotate_camerasystem_center_y': rotateCamerasystemCenterY,
-    'rotate_camerasystem_center_z': rotateCamerasystemCenterZ,
-    'zoom': zoom
-}
-
-# operations['rotate_center_x']('',10.0)
 
 
 class OperationClass(object):

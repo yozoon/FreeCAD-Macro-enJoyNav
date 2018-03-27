@@ -24,7 +24,9 @@ def dprint(str):
     if DEBUG:
         print(str)
 
-mapping = {}
+operationMap = {}
+paramMap = {}
+invertMap = {}
 
 class JoyNav(QtGui.QWidget):
     def __init__(self):
@@ -46,7 +48,7 @@ class JoyNav(QtGui.QWidget):
 
     def closeEvent(self, event):
         self.joyInterface.exit()
-        print("Closing")
+        dprint("Closing")
 
     def getDevices(self):
         [self.deviceList, self.deviceNames] = self.joyInterface.findDevices()
@@ -64,9 +66,8 @@ class JoyNav(QtGui.QWidget):
 
         ## Not Connected Label
         self.notConnectedLabel = QtGui.QLabel()
-        self.notConnectedLabel.setWordWrap(True);
+        self.notConnectedLabel.setWordWrap(True)
         self.notConnectedLabel.setObjectName(_fromUtf8("NotConnectedLabel"))
-        self.notConnectedLabel.resize(self.width, self.height)
         self.notConnectedLabel.setText(QtGui.QApplication.translate("NotConnectedLabel", 
             "Connection to device couldn\'t be established. Make sure the joystick is plugged in properly and then try again to connect.", None, QtGui.QApplication.UnicodeUTF8))
 
@@ -80,7 +81,6 @@ class JoyNav(QtGui.QWidget):
         self.devicesLabel = QtGui.QLabel()
         self.devicesLabel.setWordWrap(True);
         self.devicesLabel.setObjectName(_fromUtf8("DevicesLabel"))
-        #self.devicesLabel.resize(self.width, self.height)
         self.devicesLabel.setText(QtGui.QApplication.translate("DevicesLabel", "Available Devices:", None, QtGui.QApplication.UnicodeUTF8))
 
         ## Device List ComboBox
@@ -101,12 +101,6 @@ class JoyNav(QtGui.QWidget):
         self.startButton.setText(QtGui.QApplication.translate("JoyNav", "Start", None, QtGui.QApplication.UnicodeUTF8))
         QtCore.QObject.connect(self.startButton, QtCore.SIGNAL(_fromUtf8("pressed()")), self.startButtonPressed)
 
-        # Update Button
-        self.updateButton = QtGui.QToolButton()
-        self.updateButton.setObjectName(_fromUtf8("Update Button"))
-        self.updateButton.setText(QtGui.QApplication.translate("JoyNav", "Update", None, QtGui.QApplication.UnicodeUTF8))
-        QtCore.QObject.connect(self.updateButton, QtCore.SIGNAL(_fromUtf8("pressed()")), self.updateButtonPressed)
-
         ## Status Label
         self.statusLabel = QtGui.QLabel()
         self.statusLabel.setWordWrap(True);
@@ -114,8 +108,6 @@ class JoyNav(QtGui.QWidget):
         self.statusLabel.setText(QtGui.QApplication.translate("StatusLabel", "", None, QtGui.QApplication.UnicodeUTF8))
 
         self.updateUI()
-        
-        #QtCore.QMetaObject.connectSlotsByName(JoyNav)
 
     def operationAssignmentUI(self, axisMap, buttonMap):
         self.devicesLayout.setParent(None)
@@ -124,11 +116,44 @@ class JoyNav(QtGui.QWidget):
 
         self.operationAssignmentLayout = QtGui.QVBoxLayout()
 
+        hbox = QtGui.QHBoxLayout()
+
+        label1 = QtGui.QLabel()
+        label1.setFixedWidth(70)
+        label1.setWordWrap(True)
+        label1.setText(QtGui.QApplication.translate("JoyNav", "Axis Name", None, QtGui.QApplication.UnicodeUTF8))
+
+        label2 = QtGui.QLabel()
+        label2.setFixedWidth(230)
+        label2.setWordWrap(True)
+        label2.setText(QtGui.QApplication.translate("JoyNav", "Operation", None, QtGui.QApplication.UnicodeUTF8))
+
+        label3 = QtGui.QLabel()
+        label3.setFixedWidth(35)
+        label3.setWordWrap(True)
+        label3.setText(QtGui.QApplication.translate("JoyNav", "Invert", None, QtGui.QApplication.UnicodeUTF8))
+
+        label4 = QtGui.QLabel()
+        label4.setFixedWidth(155)
+        label4.setWordWrap(True)
+        label4.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        label4.setText(QtGui.QApplication.translate("JoyNav", "Scaling", None, QtGui.QApplication.UnicodeUTF8))
+
+        hbox.addWidget(label1)
+        hbox.addStretch(1)
+        hbox.addWidget(label2)
+        hbox.addWidget(label3)
+        hbox.addWidget(label4)
+        self.operationAssignmentLayout.addLayout(hbox)
+
         for ax in axisMap:
             # Horizontal Layout
             hbox = QtGui.QHBoxLayout()
 
-            mapping[ax] = 0
+            index = self.operationNames.index("None")
+            operationMap[ax] = index
+            paramMap[ax] = 1.0
+            invertMap[ax] = 0
 
             ## Axis Label
             label = QtGui.QLabel()
@@ -139,21 +164,28 @@ class JoyNav(QtGui.QWidget):
                 dropdown.addItem(_fromUtf8(""))
                 dropdown.setItemText(i, QtGui.QApplication.translate("JoyNav", self.operationNames[i], None, QtGui.QApplication.UnicodeUTF8))
 
-            QtCore.QObject.connect(dropdown, QtCore.SIGNAL(_fromUtf8("currentIndexChanged(int)")), MappingCallback(ax))
-            index = self.operationNames.index("none")
+            QtCore.QObject.connect(dropdown, QtCore.SIGNAL(_fromUtf8("currentIndexChanged(int)")), OperationMappingCallback(ax))
             dropdown.setCurrentIndex(index)
-            mapping[ax] = index
-            # dropdown.setCurrentIndex(0)
+
+            checkBox = QtGui.QCheckBox()
+            checkBox.setChecked(False)
+            QtCore.QObject.connect(checkBox, QtCore.SIGNAL(_fromUtf8("stateChanged(int)")), InvertMappingCallback(ax))
+
+            inputField = QtGui.QDoubleSpinBox()
+            inputField.setValue(1.0)
+            inputField.setSingleStep(0.1)
+            QtCore.QObject.connect(inputField, QtCore.SIGNAL(_fromUtf8("valueChanged(double)")), ParamMappingCallback(ax))
 
             hbox.addWidget(label)
+            hbox.addStretch(1)
             hbox.addWidget(dropdown)
+            hbox.addWidget(checkBox)
+            hbox.addWidget(inputField)
             self.operationAssignmentLayout.addLayout(hbox)
 
         self.mainLayout.addLayout(self.operationAssignmentLayout)
         hbox = QtGui.QHBoxLayout()
         hbox.addWidget(self.startButton)
-        hbox.addWidget(self.updateButton)
-        self.updateButton.hide()
         hbox.addWidget(self.statusLabel)
         self.mainLayout.addLayout(hbox)
 
@@ -173,7 +205,6 @@ class JoyNav(QtGui.QWidget):
 
             self.connectButton.show()
             self.deviceSelect.show()
-            #self.mainLayout.addStretch(1)
         else:
             if not self.mainLayout.isEmpty():
                 self.connectButton.hide()
@@ -218,31 +249,42 @@ class JoyNav(QtGui.QWidget):
                     "Please open a 3D view window and try again.", None, QtGui.QApplication.UnicodeUTF8))
             if success:
                 dprint("Starting Input Listener!")
-                dprint(mapping)
-                self.joyInterface.startListening(mapping, self.cam)
+                dprint(operationMap)
+                self.joyInterface.startListening(operationMap, paramMap, invertMap, self.cam)
                 self.startButton.hide()
-                self.updateButton.show()
-                self.statusLabel.setText(QtGui.QApplication.translate("StatusLabel", "Running", None, QtGui.QApplication.UnicodeUTF8))
+                self.statusLabel.setText(QtGui.QApplication.translate("StatusLabel", "Running. You can still change values and operation assignments.", None, QtGui.QApplication.UnicodeUTF8))
 
         else:
             self.updateUI()
 
-    def updateButtonPressed(self):
-        self.joyInterface.updateOperationMap(mapping)
-
 
 ##
-# Helper class to create dynamically created callback functions
+# Helper classes to create dynamically created callback functions
 ##
-class MappingCallback:
+class OperationMappingCallback:
     def __init__(self, name):
         self.name = name
 
     def __call__(self, index):
-        mapping[self.name] = index
+        operationMap[self.name] = index
+
+class ParamMappingCallback:
+    def __init__(self, name):
+        self.name = name
+
+    def __call__(self, num):
+        paramMap[self.name] = num
+
+class InvertMappingCallback:
+    def __init__(self, name):
+        self.name = name
+
+    def __call__(self, b):
+        invertMap[self.name] = b
+
 
 class JoyNavMacro(object):
-    d = JoyNav() #QtGui.QWidget()#
+    d = JoyNav()
     if __name__ == '__main__':
         d.show()
 
@@ -251,60 +293,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-#self.cam = Gui.ActiveDocument.ActiveView.getCameraNode()
-#self.listener = ListenerThread(0, self.cam)
-#self.listener.connect(0)
-
-# import threading
-
-# exitFlag = 0
-
-# class myThread (threading.Thread):
-#     def __init__(self, threadID, name, counter, cam):
-#         threading.Thread.__init__(self)
-#         self.threadID = threadID
-#         self.name = name
-#         self.counter = counter
-#         self.cam = cam
-
-#     def run(self):
-#         print "Starting " + self.name
-#         self.sequence(self.name)
-#         print "Exiting " + self.name
-
-#     def sequence(self, threadName):
-#         self.moveCenter(0.0, 0.0, 0.0)
-#         for i in range(0,360):
-#             r = 20.0+10.0*math.cos(4.0*math.radians(i))
-#             alpha = math.radians(i)
-#             beta = math.radians(45.0)
-#             gamma = math.radians(2*i)
-#             self.zoom(r)
-#             self.eulerRotation(alpha, beta, gamma)
-#             time.sleep(0.01)
-
-#     def moveCenter(self, x, y, z):
-#         self.cam.position = coin.SbVec3f(x, y, z)
-
-#     def zoom(self, d):
-#         self.cam.height.setValue(d)
-
-#     def eulerRotation(self, alpha, beta, gamma):
-#         x = coin.SbVec3f(1.0,0.0,0.0)
-#         y = coin.SbVec3f(0.0,1.0,1.0)
-#         z = coin.SbVec3f(0.0,0.0,1.0)
-
-#         r1 = coin.SbRotation()
-#         r1.setValue(z, alpha)
-
-#         r2 = coin.SbRotation()
-#         r2.setValue(x, beta)
-
-#         r3 = coin.SbRotation()
-#         r3.setValue(z, gamma)
-#         self.cam.orientation = r3*r2*r1
-
-#def animate(self):
-    #    thread1 = myThread(1, "Thread-1", 1, Gui.ActiveDocument.ActiveView.getCameraNode())
-    #    thread1.start()
