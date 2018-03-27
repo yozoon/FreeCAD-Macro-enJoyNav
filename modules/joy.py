@@ -13,7 +13,12 @@ from pivy import coin
 from fcntl import ioctl
 
 from modules.operations import OperationClass
-                
+
+DEBUG = False
+def dprint(str):
+    if DEBUG:
+        print(str)
+
 # We'll store the states here.
 axis_states = {}
 button_states = {}
@@ -89,11 +94,6 @@ button_names = {
     0x2c2 : 'dpad_up',
     0x2c3 : 'dpad_down',
 }
-
-DEBUG = True
-def dprint(str):
-    if DEBUG:
-        print(str)
 
 class JoyInterface(object):
     def __init__(self):
@@ -184,10 +184,10 @@ class JoyInterface(object):
         self.workerThread = WorkerThread(1, self.devices[self.index], self.axis_map, self.button_map, operation_map, param_map, invert_map, cam)
         self.workerThread.start()
 
-    def updateOperationMap(self, operation_map):
+    def resetView(self):
         if not self.workerThread == None:
             if self.workerThread.is_alive():
-                self.workerThread.updateOperationMap(operation_map)
+                self.workerThread.resetView()
 
     def exit(self):
         if not self.workerThread == None:
@@ -212,6 +212,9 @@ class WorkerThread (threading.Thread):
         self.operationClass = OperationClass()
         self.operations = self.operationClass.getOperations()
         self.operationNames = self.operationClass.getOperationNames()
+
+    def resetView(self):
+        self.operationClass.resetView(self.cam)
 
     def updateOperationMap(self, operation_map):
         self.operationMap = operation_map

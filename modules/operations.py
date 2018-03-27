@@ -55,6 +55,22 @@ def zoom(cam, arg, param=1):
     r = cam.height.getValue()
     cam.height.setValue(r + arg * param)
 
+#def moveCenterWithView(cam, arg, param=1):
+#    viewDirection = currentRotation(cam).multVec(z)
+#    viewDirection.normalize()
+#    [dx, dy, dz] = viewDirection.getValue()
+#    [X, Y, Z] = currentPosition(cam).getValue()
+#    dx = arg*param*dx
+#    dy = arg*param*dy
+#    dz = arg*param*dz
+#    dr = math.sqrt(dx*dx + dy*dy + dz*dz)
+#    cam.position = coin.SbVec3f(X + dr, Y + dy, Z + dz)
+#    if not arg == 0.0:
+#        r = cam.height.getValue()
+#        sign = arg / math.fabs(arg)
+#        cam.height.setValue(r + dr * sign)
+
+
 operations = {
     'None': dummy,
     'Move Center X': moveCenterX,
@@ -67,6 +83,7 @@ operations = {
     'Rotate Camerasystem Center Y': rotateCamerasystemCenterY,
     'Rotate Camerasystem Center Z': rotateCamerasystemCenterZ,
     'Zoom': zoom
+    #'Move Center With View': moveCenterWithView
 }
 
 
@@ -143,5 +160,13 @@ def confine(value, vmin, vmax):
 class OperationClass(object):
     def getOperationNames(self):
         return operations.keys()
+
     def getOperations(self):
         return operations
+
+    def resetView(self, cam):
+        cam.position = coin.SbVec3f(0.0, 0.0, 0.0)
+        r = coin.SbRotation()
+        r.setValue(z, math.radians(0.0))
+        cam.orientation = r
+        cam.height.setValue(100.0)

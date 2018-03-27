@@ -19,7 +19,7 @@ try:
 except AttributeError:
     _fromUtf8 = lambda s: s
 
-DEBUG = True
+DEBUG = False
 def dprint(str):
     if DEBUG:
         print(str)
@@ -100,6 +100,12 @@ class JoyNav(QtGui.QWidget):
         self.startButton.setObjectName(_fromUtf8("Start Button"))
         self.startButton.setText(QtGui.QApplication.translate("JoyNav", "Start", None, QtGui.QApplication.UnicodeUTF8))
         QtCore.QObject.connect(self.startButton, QtCore.SIGNAL(_fromUtf8("pressed()")), self.startButtonPressed)
+
+        # Reset View Button
+        self.resetButton = QtGui.QToolButton()
+        self.resetButton.setObjectName(_fromUtf8("Reset Button"))
+        self.resetButton.setText(QtGui.QApplication.translate("JoyNav", "Reset View", None, QtGui.QApplication.UnicodeUTF8))
+        QtCore.QObject.connect(self.resetButton, QtCore.SIGNAL(_fromUtf8("pressed()")), self.resetButtonPressed)
 
         ## Status Label
         self.statusLabel = QtGui.QLabel()
@@ -187,6 +193,7 @@ class JoyNav(QtGui.QWidget):
         hbox = QtGui.QHBoxLayout()
         hbox.addWidget(self.startButton)
         hbox.addWidget(self.statusLabel)
+        hbox.addWidget(self.resetButton)
         self.mainLayout.addLayout(hbox)
 
     def updateUI(self):
@@ -253,9 +260,11 @@ class JoyNav(QtGui.QWidget):
                 self.joyInterface.startListening(operationMap, paramMap, invertMap, self.cam)
                 self.startButton.hide()
                 self.statusLabel.setText(QtGui.QApplication.translate("StatusLabel", "Running. You can still change values and operation assignments.", None, QtGui.QApplication.UnicodeUTF8))
-
         else:
             self.updateUI()
+
+    def resetButtonPressed(self):
+        self.joyInterface.resetView()
 
 
 ##
