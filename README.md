@@ -14,6 +14,6 @@ The project is still in its early stages. You will definitely find bugs. Additio
 
 ## Screenshots
 
-![](https://raw.githubusercontent.com/yozoon/FreeCAD-Macro-JoyNav/master/img/device_selection.png "Device Selection")
+![](img/device_selection.png "Device Selection")
 
-![](https://raw.githubusercontent.com/yozoon/FreeCAD-Macro-JoyNav/master/img/operation_assignment.png "Operation Assignment")
+![](img/operation_assignment.png "Operation Assignment")
